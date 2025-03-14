@@ -5,9 +5,12 @@ from io import StringIO
 import os
 import pandas as pd
 import chardet
+from dotenv import dotenv_values
 
+config = dotenv_values(".env")
 
-# this function does a few things:
+# thi
+# s function does a few things:
 # - combine the data for each type of Garmin export
 # - place a copy of files that couldn't be parsed to a separate folder to be inspected
 
