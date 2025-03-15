@@ -1,3 +1,5 @@
 *.csv
-overview/
+*.xlsx
+garmin/overviews/
+garmin/old/
 .env
