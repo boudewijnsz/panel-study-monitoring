@@ -1,70 +1,98 @@
 # -*- coding: utf-8 -*-
+from pathlib import Path
 import re
-from shutil import copy2
+from datetime import datetime
 from io import StringIO
 import os
 import pandas as pd
-import chardet
 from dotenv import dotenv_values
+from ibridges import search_data
+from ibridges.interactive import Session
+from ibridges import IrodsPath
 
+
+# load the variables defined in the env file
 config = dotenv_values(".env")
+yoda_password = dotenv_values(config['YODA'])['YODA']
 
-# thi
-# s function does a few things:
-# - combine the data for each type of Garmin export
-# - place a copy of files that couldn't be parsed to a separate folder to be inspected
+# set up ibridges session
+env_file = Path.expanduser(Path('~')).joinpath(".irods", "irods_environment.json")
+session = Session(env_file, password=yoda_password)
 
-parsing_errors_dir = 
+# create inventory of available files
+garmin_path = config['YODA_SOURCE_DIR']
+garmin_files = search_data(session, path=garmin_path, path_pattern="%")
 
-def merge_data(type):
+garmin_files_df = pd.DataFrame({'yoda_path': [str(p) for p in garmin_files]})
 
-    df_out = pd.DataFrame()
-    
-    for file in os.listdir(json_dir):
-    
-        if file.endswith('json') and type in file.lower():
+# load all files of a particicular export
+def merge_garmin_exports(garmin_files_df, export_type):
+    """merges all files of a particular type and stores them in the processed folder
+    export type is the part of the filename that indicates what data is in the file, e.g. 'Daily'"""
 
-            file_path = os.path.join(json_dir, file)
-    
-            with open(file_path, 'rb') as f:
-                # encoding differes per file and is not utf-8 so determine first
-                enc = chardet.detect(f.read())
-            try:
-                data = pd.read_json(file_path, encoding=enc['encoding'])
-                
-                data['filename'] = file
+    # ignore files in the processed folder
+    garmin_files_df = garmin_files_df[~garmin_files_df['yoda_path'].str.contains('processed')]
 
-                df_out = pd.concat([df_out, data])
-                
-            except Exception as e: 
-                # some files have an issue where the dicts are not properly enclosed in a list (an empty list is present at the end)
+    # use of capitals in the filenames are inconsistant so make lower
+    files_to_process = garmin_files_df[garmin_files_df['yoda_path'].str.lower().str.contains(export_type)]['yoda_path']
 
-                try: 
-                    with open(file_path, 'r') as f:
-                        raw_json = f.read()
+    loaded_data = pd.DataFrame()
 
-                    raw_json = re.sub(r'\[\]$', r']', raw_json)
-                    raw_json = re.sub(r'^', r'[', raw_json)
+    for file in files_to_process:
 
-                    data = pd.read_json(StringIO(raw_json))
+        print(file)
 
-                    data['filename'] = file    
-                    df_out = pd.concat([df_out, data])
+        file_name = os.path.split(file)[1]
+        file_date = re.search('[0-9]{4}-[0-9]{2}-[0-9]{2}', file).group()
 
-                except:
-                    print(file, e)
-                    copy2(file_path, parsing_errors_dir)
+        obj = IrodsPath(session, file).dataobject
+
+        stream = obj.open('r')
+        json_text = stream.read().decode()
+
+        stream.close()
+
+        # some files have an issue where the dicts are not properly enclosed in a list (an empty list is present at the end)
+        try:
+            data = pd.read_json(StringIO(json_text))
+        
+        except:
+            print('exception')
+            json_text = re.sub(r'\[\]$', r']', json_text)
+            json_text = re.sub(r'^', r'[', json_text)
+
+            data = pd.read_json(StringIO(json_text))
+
+        data['file_name'] = file_name
+        data['file_date'] = file_date
+
+        loaded_data = pd.concat([loaded_data, data])
+
+        # in order to deduplicate the dataframe with data, turn all columns to string
+        # to avoid TypeError: unhashable type: 'dict'
+        loaded_data = loaded_data.astype(str)
+
+        loaded_data = loaded_data.drop_duplicates()
+
+        # write the data to yoda processed folder
+        date = datetime.today().strftime('%Y-%m-%d')
+
+        processed_dir = config['YODA_RESULT_DIR']
+
+        irods_save_path = IrodsPath(session, processed_dir + '/' + export_type + '_{}.csv'.format(date))
+
+        with irods_save_path.open('w') as new_obj:
+
+            new_obj.write(loaded_data.to_csv(sep=';', index=False).encode())
+
+    return loaded_data
 
 
-    df_out.drop_duplicates().to_csv(os.path.join(csv_dir, type + '.csv'), sep=';')
-
-    return df_out
-
-# bodycomposition = merge_data('bodycomposition')
-daily = merge_data('daily')
-# epoch = merge_data('epoch')
-# pulseox = merge_data('pulseox')
-# respiration = merge_data('respiration')
-# sleep = merge_data('sleep')
-# stress = merge_data('stress')
-# usermetric = merge_data('usermetric')
+merge_garmin_exports(garmin_files_df, 'daily')
+merge_garmin_exports(garmin_files_df, 'stress')
+merge_garmin_exports(garmin_files_df,'pulseox')
+merge_garmin_exports(garmin_files_df,'sleep')
+merge_garmin_exports(garmin_files_df,'usermetric')
+merge_garmin_exports(garmin_files_df,'epoch')
+merge_garmin_exports(garmin_files_df,'bodycomposition')
+merge_garmin_exports(garmin_files_df,'respiration')
