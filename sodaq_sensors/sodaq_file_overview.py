@@ -1,0 +1,329 @@
+# %%
+# -*- coding: utf-8 -*-
+import sys
+import os
+import re
+from pathlib import Path
+from datetime import datetime
+import pandas as pd
+from dotenv import dotenv_values
+import numpy as np
+from ibridges import Session
+from ibridges.search import search_data
+from ibridges.path import IrodsPath
+from ibridges import upload
+
+# load the variables defined in the env file
+config = dotenv_values("../.env")
+yoda_password = dotenv_values(config['YODA'])['YODA']
+
+# start an ibridges session to create the overview of all the files present in Yoda
+env_file = Path.expanduser(Path('~')).joinpath(".irods", "irods_environment.json")
+session = Session(irods_env=env_file, password=yoda_password)
+
+# %%
+# name of the file exported from Ldot
+file_name_ldot = "MEMIC_Overview_Apparaatnummers deelnemers meetweek januari 2025_20250314_10_56.xlsx"
+
+# name of the batch (e.g. for March 2025 'march_2025')
+batch_name = 'january_2025'
+
+# %%
+# to discuss:
+# - take earliers data when there are multiple or actual date per participant?
+# - same for batch end date
+
+# %%
+# first run download the overview from Ldot that contains the AID and sending dates for the sensors
+
+# open the Ldot export
+ldot_export_dir = config['LDOT_EXPORT_DIR']
+
+
+batch_sensor_aid_keylist = pd.read_excel(os.path.join(ldot_export_dir, file_name_ldot), dtype=str)
+
+# add the GPS sensor IMEI
+keylist_track_sensors = pd.read_excel('TRACK_KoppelingBarcodeIMEI.xlsx', dtype=str)
+batch_sensor_aid_keylist = pd.merge(batch_sensor_aid_keylist, keylist_track_sensors, how='left', left_on='GPS', right_on='QR CODE')
+batch_sensor_aid_keylist = batch_sensor_aid_keylist.rename(columns={'IMEI': 'GPS IMEI'})
+batch_sensor_aid_keylist = batch_sensor_aid_keylist[
+    ['Studienummer', 'Naam', 'Email', 'pakket verstuurd',
+       'pakket retour', 'IMEI dynamisch', 'IMEI statisch', 'QR CODE', 'GPS IMEI']
+       ]
+
+
+# modify data types to ease adding missing values
+batch_sensor_aid_keylist['GPS IMEI'] = batch_sensor_aid_keylist['GPS IMEI'].astype(str)
+
+batch_sensor_aid_keylist['pakket verstuurd'] = pd.to_datetime(batch_sensor_aid_keylist['pakket verstuurd'], dayfirst=True)
+batch_sensor_aid_keylist['pakket retour'] = pd.to_datetime(batch_sensor_aid_keylist['pakket retour'], dayfirst=True)
+
+batch_sensor_aid_keylist = batch_sensor_aid_keylist.drop_duplicates()
+
+# %%
+# set the sending date for the current batch. Only the files in Yoda sent
+# after this date and before today's date are taken into account.
+# sending dates are available in the Ldot export but sometimes there are multiple dates, take the earliest
+# batch_start_date = batch_sensor_aid_keylist['pakket verstuurd'].str.extract('([0-9]{2}-[0-9]{1,2}-[0-9]{4})').drop_duplicates().dropna().min()
+today = datetime.today()
+
+# if sensor has not been returned yet/return date is empty, use today's date
+batch_sensor_aid_keylist['pakket retour'] = batch_sensor_aid_keylist['pakket retour'].fillna(today)
+
+
+batch_sensor_aid_keylist
+
+# %%
+# generate an overview of all available data on Yoda
+def get_yoda_files(yoda_path): 
+    
+    irods_path = IrodsPath(session, session.home)
+
+    yoda_dir = irods_path.joinpath(yoda_path)
+
+    all_yoda_files = search_data(session, path=str(yoda_dir), path_pattern="%")
+
+    all_yoda_files_df = pd.DataFrame({'file_path': all_yoda_files})
+    all_yoda_files_df['file_path'] = all_yoda_files_df['file_path'].astype(str)
+
+    all_yoda_files_df['file_date'] = all_yoda_files_df['file_path'].str.extract('([0-9]{4}\/[0-9]{2}\/[0-9]{2}(?=\/))')
+    all_yoda_files_df['file_date'] = pd.to_datetime(all_yoda_files_df['file_date'], format='%Y/%m/%d')
+    all_yoda_files_df['IMEI'] = all_yoda_files_df['file_path'].str.extract('([0-9]{15})(?=\.txt)')
+
+    all_yoda_files_df.dropna(subset='IMEI', inplace=True)
+    
+    return all_yoda_files_df
+
+
+# create an overview of all available files in Yoda
+air_files = get_yoda_files('research-expanse-sodaq-nl/SODAQ AIR')
+track_files = get_yoda_files('research-expanse-sodaq-nl/SODAQ TRACK')
+
+session.close()
+
+print(air_files.shape)
+print(track_files.shape)
+
+# %%
+# declare the functions to map the data
+
+def merge_sensor_data(sensor_type):
+    
+    if sensor_type not in ['static', 'dynamic', 'gps']:
+        
+        print('Sensor type should be "static" or "dynamic", "gps"')
+        return
+    
+    if sensor_type == 'gps':
+        
+        sensor_files = track_files
+    else:
+        
+        sensor_files = air_files
+    
+    sensor_columns = {'static': 'IMEI statisch',
+                      'dynamic': 'IMEI dynamisch',
+                      'gps': 'GPS IMEI'}
+    
+    sensor_column = sensor_columns[sensor_type]
+    
+    sensor_data = (
+        batch_sensor_aid_keylist[['Studienummer', 'Naam', 'Email', sensor_column, 'pakket verstuurd', 'pakket retour']]
+        .merge(sensor_files, how='left', left_on=sensor_column, right_on='IMEI')
+        )
+    
+    return sensor_data
+    
+
+def count_sensor_files(sensor_files, sensor_type):
+    
+    if sensor_type == 'static':
+        
+        imei_column = 'IMEI statisch'
+        
+    elif sensor_type == 'dynamic':
+    
+        imei_column = 'IMEI dynamisch'
+        
+    elif sensor_type == 'gps':
+        
+        imei_column = 'GPS IMEI'
+        
+    else:
+        print('Sensor type should be "static", "dynamic" or "gps"')
+        return
+            
+
+    count_sensor_files = (
+        sensor_files
+        .loc[((sensor_files['file_date'] >= pd.to_datetime(sensor_files['pakket verstuurd'])) &
+              (sensor_files['file_date'] < pd.to_datetime(sensor_files['pakket retour'])))]
+        .filter(['Studienummer', imei_column, 'file_path'])
+        .rename(columns={imei_column: 'IMEI'})
+        .groupby(['Studienummer', 'IMEI'])
+        .count()
+        .reset_index()
+        .assign(sensor_type = sensor_type)
+        .rename(columns={'file_path': 'total_files_present'})
+        )
+    
+    # sometimes files are missing completely so merge back to original list of
+    # IMEIS
+    batch_IMEIs =  batch_sensor_aid_keylist[
+        ['Studienummer',
+         imei_column
+         # 'naam_',
+         # 'achternaam_',
+         # 'e_mailadres'
+         ]
+        ]
+                      
+    counted_IMEIs = count_sensor_files['IMEI']
+    
+    missing_IMEIs = (
+        batch_IMEIs
+        .merge(counted_IMEIs, how='outer', left_on=imei_column, right_on='IMEI')
+        )
+    
+    print(missing_IMEIs.columns)
+    
+    missing_IMEIs = missing_IMEIs[missing_IMEIs['IMEI'].isna()].drop('IMEI', axis=1).rename(columns={imei_column: 'IMEI'})
+
+    missing_IMEIs['sensor_type'] = sensor_type
+    missing_IMEIs['total_files_present'] = 0
+
+    count_sensor_files = pd.concat([count_sensor_files, missing_IMEIs])
+    
+    return count_sensor_files
+
+
+def get_sensor_dates(sensor_files, sensor_type):
+    
+    if sensor_type not in ['static', 'dynamic', 'gps']:
+        
+        print('Sensor type should be "static" or "dynamic"')
+        return
+    
+    all_dates = pd.DataFrame({
+        'date':
+        pd.date_range(sensor_files['pakket verstuurd'].min(), sensor_files['pakket retour'].max()).to_list()
+        })
+    
+    sensor_dates = (
+        sensor_files
+        .merge(all_dates, how='right', left_on='file_date', right_on='date')
+        )
+    
+    sensor_dates = (
+        sensor_dates
+        .loc[((sensor_dates['date'] >= sensor_dates['pakket verstuurd']) &
+                (sensor_dates['date'] < sensor_dates['pakket retour']))]
+        .filter(['Studienummer', 'date'])
+        .assign(file_date = sensor_dates['date'].astype('string'))
+        .assign(file_available = 'yes')
+        .assign(sensor_type = sensor_type)
+        .drop_duplicates()
+        .pivot(columns='file_date', index=['Studienummer', 'sensor_type'], values='file_available')
+        .reset_index()
+        )
+    
+    return sensor_dates
+
+# %%
+gps_sensors = merge_sensor_data('gps')
+gps_sensors_count = count_sensor_files(gps_sensors, 'gps')
+gps_sensors_count_dates = get_sensor_dates(gps_sensors, 'gps')
+
+static_air_sensors = merge_sensor_data('static')
+static_air_sensors_count = count_sensor_files(static_air_sensors, 'static')
+static_air_sensors_count_dates = get_sensor_dates(static_air_sensors, 'static')
+
+dynamic_air_sensors = merge_sensor_data('dynamic')
+dynamic_air_sensors_count = count_sensor_files(dynamic_air_sensors, 'dynamic')
+dynamic_air_sensors_count_dates = get_sensor_dates(dynamic_air_sensors, 'dynamic')
+
+gps_overview = gps_sensors_count.merge(gps_sensors_count_dates, how='left', on=['Studienummer', 'sensor_type'])
+static_overview = static_air_sensors_count.merge(static_air_sensors_count_dates, how='left', on=['Studienummer', 'sensor_type'])
+dynamic_overview = dynamic_air_sensors_count.merge(dynamic_air_sensors_count_dates, how='left', on=['Studienummer', 'sensor_type'])
+
+overview_static_dynamic_gps = pd.concat(
+    [static_overview, 
+     dynamic_overview,
+     gps_overview]).sort_values(['Studienummer', 'sensor_type'])
+
+overview_static_dynamic_gps.dropna(subset=['Studienummer'], inplace=True)
+
+overview_static_dynamic_gps.drop_duplicates(inplace=True)
+
+date_today = datetime.today().strftime('%Y-%m-%d')
+
+# %%
+# write the output file
+overview_path = "overview_sensor_files_batch_{}.xlsx".format(batch_name)
+
+writer = pd.ExcelWriter(overview_path, engine='xlsxwriter')
+
+overview_static_dynamic_gps.to_excel(writer, sheet_name='Sheet1', index=False)
+
+workbook = writer.book
+
+red = workbook.add_format({'bg_color': '#ffc7ce'})
+green = workbook.add_format({'bg_color': '#c6efce'})
+
+worksheet = writer.sheets['Sheet1']
+
+# because the number of columns varies whether name is in there, dynamically
+# check which column to color first
+date_cols = [ c for c in overview_static_dynamic_gps.columns if re.match('[0-9]{4}-[0-9]{2}-[0-9]{2}', c)]
+first_date_col = date_cols[0]
+
+# still finish later
+
+first_row = 1
+first_col = 4
+last_row = overview_static_dynamic_gps.shape[0]
+last_col = overview_static_dynamic_gps.dropna(axis=1, how='all').shape[1]
+
+print(last_col)
+
+worksheet.conditional_format(first_row, first_col, last_row, last_col,
+                             {'type': 'cell',
+                              'criteria': 'equal to',
+                              'value': '"yes"',
+                             'format': green})
+
+worksheet.conditional_format(first_row, first_col, last_row, last_col,
+                              {'type': 'blanks',
+                              'format': red})
+
+
+
+worksheet.autofit()
+
+writer.close()
+
+# %%
+# write the file to the Yoda monitoring folder
+
+yoda_monitoring_dir = config['YODA_MONITORING_DIR']
+
+irods_path = IrodsPath(session, '~', yoda_monitoring_dir)
+upload(session, overview_path, irods_path)
+
+
+
+# %%
+irods_path
+
+# %%
+overview_static_dynamic_gps
+
+# %%
+t = gps_sensors
+
+t.loc[((t['file_date'] >= pd.to_datetime(batch_start_date)) &
+              (t['file_date'] <= pd.to_datetime(batch_end_date)))]
+
+t
+
+
