@@ -12,7 +12,7 @@ from ibridges import download
 from ibridges import upload
 
 # load the variables defined in the env file
-config = dotenv_values("../.env")
+config = dotenv_values("./.env")
 yoda_password = dotenv_values(config['YODA'])['YODA']
 
 # start an ibridges session to create the overview of all the files present in Yoda

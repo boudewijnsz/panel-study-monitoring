@@ -14,7 +14,7 @@ from ibridges.path import IrodsPath
 from ibridges import upload
 
 # load the variables defined in the env file
-config = dotenv_values("../.env")
+config = dotenv_values("./.env")
 yoda_password = dotenv_values(config['YODA'])['YODA']
 
 # start an ibridges session to create the overview of all the files present in Yoda
@@ -23,10 +23,10 @@ session = Session(irods_env=env_file, password=yoda_password)
 
 # %%
 # name of the file exported from Ldot
-file_name_ldot = "MEMIC_Overview_Apparaatnummers deelnemers meetweek januari 2025_20250314_10_56.xlsx"
+file_name_ldot = config['FILE_NAME_LDOT']
 
 # name of the batch (e.g. for March 2025 'march_2025')
-batch_name = 'january_2025'
+batch_name = 'march_2025'
 
 # %%
 # to discuss:
@@ -36,14 +36,11 @@ batch_name = 'january_2025'
 # %%
 # first run download the overview from Ldot that contains the AID and sending dates for the sensors
 
-# open the Ldot export
-ldot_export_dir = config['LDOT_EXPORT_DIR']
-
-
-batch_sensor_aid_keylist = pd.read_excel(os.path.join(ldot_export_dir, file_name_ldot), dtype=str)
+batch_sensor_aid_keylist = pd.read_excel(file_name_ldot, dtype=str)
 
 # add the GPS sensor IMEI
-keylist_track_sensors = pd.read_excel('TRACK_KoppelingBarcodeIMEI.xlsx', dtype=str)
+track_key_table = config['TRACK_KEY_TABLE']
+keylist_track_sensors = pd.read_excel(track_key_table, dtype=str)
 batch_sensor_aid_keylist = pd.merge(batch_sensor_aid_keylist, keylist_track_sensors, how='left', left_on='GPS', right_on='QR CODE')
 batch_sensor_aid_keylist = batch_sensor_aid_keylist.rename(columns={'IMEI': 'GPS IMEI'})
 batch_sensor_aid_keylist = batch_sensor_aid_keylist[
@@ -284,8 +281,6 @@ first_col = 4
 last_row = overview_static_dynamic_gps.shape[0]
 last_col = overview_static_dynamic_gps.dropna(axis=1, how='all').shape[1]
 
-print(last_col)
-
 worksheet.conditional_format(first_row, first_col, last_row, last_col,
                              {'type': 'cell',
                               'criteria': 'equal to',
@@ -311,19 +306,5 @@ irods_path = IrodsPath(session, '~', yoda_monitoring_dir)
 upload(session, overview_path, irods_path)
 
 
-
-# %%
-irods_path
-
-# %%
-overview_static_dynamic_gps
-
-# %%
-t = gps_sensors
-
-t.loc[((t['file_date'] >= pd.to_datetime(batch_start_date)) &
-              (t['file_date'] <= pd.to_datetime(batch_end_date)))]
-
-t
 
 

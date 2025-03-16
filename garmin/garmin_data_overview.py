@@ -12,7 +12,8 @@ from ibridges import IrodsPath
 
 
 # load the variables defined in the env file
-config = dotenv_values("../.env")
+config = dotenv_values("./.env")
+print(config)
 yoda_password = dotenv_values(config['YODA'])['YODA']
 
 # set up ibridges session
