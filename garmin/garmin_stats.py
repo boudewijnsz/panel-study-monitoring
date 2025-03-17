@@ -21,11 +21,10 @@ session = Session(irods_env=env_file, password=yoda_password)
 
 # %%
 # load the key table with AID and Access token
-key_table_dir = config['GARMIN_KEY_TABLE_DIR']
 key_table_file = config['GARMIN_KEY_TABLE_FILE']
 
 # the data are in different tabs with inconsistent names so parse with loop and dict
-key_table_xlsx = pd.ExcelFile(os.path.join(key_table_dir, key_table_file))
+key_table_xlsx = pd.ExcelFile(key_table_file)
 
 key_table_tabs = {'November': 'November',
                   'februari': 'February'}
@@ -51,7 +50,9 @@ daily_files_df['file_date'] = daily_files_df['file'].str.extract('([0-9]{4}-[0-9
 daily_files_df['file_date'] = pd.to_datetime(daily_files_df['file_date'])
 
 # load the data from the most recent file
-most_recent_daily_file = daily_files_df[daily_files_df['file_date'] == daily_files_df['file_date'].max()]['file'][0]
+most_recent_daily_file = daily_files_df[daily_files_df['file_date'] == daily_files_df['file_date'].max()]['file'].iloc[0]
+
+print("loading data from {}".format(most_recent_daily_file))
 
 # because the file is big, streaming takes long. Therfore download and load in to dataframe
 local_path = Path("../downloads")
