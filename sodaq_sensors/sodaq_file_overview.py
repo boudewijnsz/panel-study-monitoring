@@ -73,6 +73,8 @@ batch_sensor_aid_keylist
 # %%
 # generate an overview of all available data on Yoda
 def get_yoda_files(yoda_path): 
+
+    print("searching {}".format(yoda_path))
     
     irods_path = IrodsPath(session, session.home)
 
@@ -83,9 +85,9 @@ def get_yoda_files(yoda_path):
     all_yoda_files_df = pd.DataFrame({'file_path': all_yoda_files})
     all_yoda_files_df['file_path'] = all_yoda_files_df['file_path'].astype(str)
 
-    all_yoda_files_df['file_date'] = all_yoda_files_df['file_path'].str.extract('([0-9]{4}\/[0-9]{2}\/[0-9]{2}(?=\/))')
+    all_yoda_files_df['file_date'] = all_yoda_files_df['file_path'].str.extract(r'([0-9]{4}\/[0-9]{2}\/[0-9]{2}(?=\/))')
     all_yoda_files_df['file_date'] = pd.to_datetime(all_yoda_files_df['file_date'], format='%Y/%m/%d')
-    all_yoda_files_df['IMEI'] = all_yoda_files_df['file_path'].str.extract('([0-9]{15})(?=\.txt)')
+    all_yoda_files_df['IMEI'] = all_yoda_files_df['file_path'].str.extract(r'([0-9]{15})(?=\.txt)')
 
     all_yoda_files_df.dropna(subset='IMEI', inplace=True)
     
@@ -96,10 +98,6 @@ def get_yoda_files(yoda_path):
 air_files = get_yoda_files('research-expanse-sodaq-nl/SODAQ AIR')
 track_files = get_yoda_files('research-expanse-sodaq-nl/SODAQ TRACK')
 
-session.close()
-
-print(air_files.shape)
-print(track_files.shape)
 
 # %%
 # declare the functions to map the data
@@ -182,8 +180,7 @@ def count_sensor_files(sensor_files, sensor_type):
         .merge(counted_IMEIs, how='outer', left_on=imei_column, right_on='IMEI')
         )
     
-    print(missing_IMEIs.columns)
-    
+   
     missing_IMEIs = missing_IMEIs[missing_IMEIs['IMEI'].isna()].drop('IMEI', axis=1).rename(columns={imei_column: 'IMEI'})
 
     missing_IMEIs['sensor_type'] = sensor_type
@@ -203,7 +200,7 @@ def get_sensor_dates(sensor_files, sensor_type):
     
     all_dates = pd.DataFrame({
         'date':
-        pd.date_range(sensor_files['pakket verstuurd'].min(), sensor_files['pakket retour'].max()).to_list()
+        pd.date_range(sensor_files['pakket verstuurd'].dt.date.min(), sensor_files['pakket retour'].dt.date.max()).to_list()
         })
     
     sensor_dates = (
@@ -256,7 +253,7 @@ date_today = datetime.today().strftime('%Y-%m-%d')
 
 # %%
 # write the output file
-overview_path = "overview_sensor_files_batch_{}.xlsx".format(batch_name)
+overview_path = "sodaq_sensors/overview_sensor_files_batch_{}.xlsx".format(batch_name)
 
 writer = pd.ExcelWriter(overview_path, engine='xlsxwriter')
 
@@ -303,8 +300,13 @@ writer.close()
 yoda_monitoring_dir = config['YODA_MONITORING_DIR']
 
 irods_path = IrodsPath(session, '~', yoda_monitoring_dir)
-upload(session, overview_path, irods_path)
+print("writing utput to yoda ")
+upload(session, overview_path, irods_path, overwrite=True)
+
+session.close()
 
 
 
 
+
+# %%
