@@ -56,11 +56,11 @@ most_recent_daily_file = daily_files_df[daily_files_df['file_date'] == daily_fil
 print("loading data from {}".format(most_recent_daily_file))
 
 # because the file is big, streaming takes long. Therfore download and load in to dataframe
-local_path = Path("../downloads")
+local_path = Path("./downloads")
 irods_path = IrodsPath(session, '~', most_recent_daily_file)
 download(session, irods_path, local_path, overwrite=True)
 
-daily_download_path = '../downloads/' + Path(most_recent_daily_file).name
+daily_download_path = './downloads/' + Path(most_recent_daily_file).name
 
 most_recent_daily = pd.read_csv(daily_download_path, sep=';')
 
