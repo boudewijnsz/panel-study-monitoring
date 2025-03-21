@@ -27,7 +27,8 @@ key_table_file = config['GARMIN_KEY_TABLE_FILE']
 key_table_xlsx = pd.ExcelFile(key_table_file)
 
 key_table_tabs = {'November': 'November',
-                  'februari': 'February'}
+                  'februari': 'February',
+                  'Maart': 'March'}
 
 key_table = pd.DataFrame()
 
