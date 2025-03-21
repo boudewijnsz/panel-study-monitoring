@@ -4,3 +4,7 @@ garmin/overviews/
 garmin/old/
 .env
 downloads
+garmin/garmin_data_develop.ipynb
+garmin/garmin_stats_AID_develop.ipynb
+garmin/overview_develop.ipynb
+sodaq_sensors/yoda_file_overview_AID_current_batch_Ldot.ipynb
