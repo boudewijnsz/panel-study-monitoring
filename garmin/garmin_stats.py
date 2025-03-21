@@ -71,7 +71,7 @@ Path.unlink(daily_download_path)
 # %%
 most_recent_daily_aid = key_table[['AID', 'month', 'Access token']].merge(most_recent_daily, how='left', left_on='Access token', right_on='userAccessToken')
 
-daily_aid_counts = most_recent_daily_aid[['AID', 'month', 'calendarDate']].groupby(['AID', 'month']).nunique().reset_index()
+daily_aid_counts = most_recent_daily_aid[['AID', 'Access token', 'month', 'calendarDate']].groupby(['AID', 'month']).nunique().reset_index()
 
 daily_aid_min_date = most_recent_daily_aid[['AID', 'calendarDate']].groupby('AID').min().reset_index().rename(columns={'calendarDate': 'min_date'})
 daily_aid_max_date = most_recent_daily_aid[['AID', 'calendarDate']].groupby('AID').max().reset_index().rename(columns={'calendarDate': 'max_date'})
