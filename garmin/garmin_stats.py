@@ -108,8 +108,8 @@ for index, row in data_daily_hr_cols.iterrows():
         data_hr_user = pd.DataFrame({'AID': [id]})
 
         # for the empty data add empty dicts to the hist dataframe
-        data_hr_user_hist_out = pd.DataFrame({'AID': [id]}),
-        data_hr_user_hist_out = data_hr_user_hist_out.reindex(['userAccessToken', 'date', 'hour', 'measurements'])
+        data_hr_user_hist_out = pd.DataFrame({'AID': [id]})
+        print(data_hr_user_hist_out)
 
     else:
         try: 
@@ -130,6 +130,8 @@ for index, row in data_daily_hr_cols.iterrows():
             data_hr_user['hour'] = data_hr_user['hr_measure_time'].dt.hour
 
             data_hr_user_hist = data_hr_user.groupby(['AID', 'userAccessToken', 'date', 'hour'])['hr'].count().reset_index().rename(columns={'hr': 'measurements'})
+            data_hr_user_hist['measurements'] = data_hr_user_hist['measurements'].astype(int) 
+
 
             # merge to all hours in the day to also show hours with no data. There can be multiple dates
             # in each dataframe so create the table with hours in a day for all dates
