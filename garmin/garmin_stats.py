@@ -1,6 +1,8 @@
 # %%
 # -*- coding: utf-8 -*-
 import os
+import re
+import ast
 from pathlib import Path
 from datetime import datetime
 import pandas as pd
@@ -12,7 +14,7 @@ from ibridges import download
 from ibridges import upload
 
 # load the variables defined in the env file
-config = dotenv_values("./.env")
+config = dotenv_values(Path(Path.cwd().parent, '.env'))
 yoda_password = dotenv_values(config['YODA'])['YODA']
 
 # start an ibridges session to create the overview of all the files present in Yoda
@@ -33,13 +35,13 @@ key_table_tabs = {'November': 'November',
 key_table = pd.DataFrame()
 
 for k, v in key_table_tabs.items():
-    key_table_batch = pd.read_excel(key_table_xlsx, k)
+    key_table_batch = pd.read_excel(key_table_xlsx, k, dtype=str)
     key_table_batch['month'] = v
 
     key_table = pd.concat([key_table, key_table_batch])
 
 
-key_table.columns
+
 
 # %%
 # load the most recent overwiew of daily Garmin data
@@ -56,16 +58,13 @@ most_recent_daily_file = daily_files_df[daily_files_df['file_date'] == daily_fil
 print("loading data from {}".format(most_recent_daily_file))
 
 # because the file is big, streaming takes long. Therfore download and load in to dataframe
-local_path = Path("./downloads")
+downloads_path = Path(Path.cwd().parent, 'downloads')
 irods_path = IrodsPath(session, '~', most_recent_daily_file)
-download(session, irods_path, local_path, overwrite=True)
+download(session, irods_path, downloads_path, overwrite=True)
 
-daily_download_path = './downloads/' + Path(most_recent_daily_file).name
+daily_download_path = Path(downloads_path, Path(most_recent_daily_file).name)
 
 most_recent_daily = pd.read_csv(daily_download_path, sep=';')
-
-# remove the downloaded file to keep things organized
-Path.unlink(daily_download_path)
 
 
 # %%
@@ -83,7 +82,78 @@ daily_aid_counts= daily_aid_counts.rename(columns={'calendarDate': 'file_availab
 
 daily_aid_overview = daily_aid_overview.sort_values('month')
 
-daily_aid_overview
+# process heart rate data for participants
+data_daily_hr_cols = most_recent_daily_aid[['AID', 'userAccessToken', 'startTimeInSeconds', 'timeOffsetHeartRateSamples']]
+
+data_daily_hr_cols['date'] = pd.to_datetime(data_daily_hr_cols['startTimeInSeconds'], unit='s').dt.tz_localize('UTC').dt.tz_convert('Europe/Amsterdam')
+
+data_daily_hr = pd.DataFrame()
+data_daily_hr_hist = pd.DataFrame()
+
+# there are empty dicts and float nan values in the data. Convert timeOffsetHeartRateSamples to string for easier
+# capture of nan values. math.isnan didnt work cause most rows are strings
+
+data_daily_hr_cols = data_daily_hr_cols.fillna('')
+
+for index, row in data_daily_hr_cols.iterrows():
+
+    start_date = row['date']
+    id = row['AID']
+    access_token = row['userAccessToken']
+    print(access_token)
+
+
+    if row['timeOffsetHeartRateSamples'] == '{}' or row['timeOffsetHeartRateSamples'] == '':
+
+        data_hr_user = pd.DataFrame({'AID': [id]})
+
+        data_hr_user_hist_out = pd.DataFrame(columns=['AID', 'userAccessToken', 'date', 'hour', 'measurements'])
+
+    else:
+        try: 
+            data_hr_user = pd.DataFrame(ast.literal_eval(row['timeOffsetHeartRateSamples']).items()).rename(columns={0: 'time', 1: 'hr'})
+
+            data_hr_user['time'] = data_hr_user['time'].astype(int)
+
+            data_hr_user['hr_measure_time'] = start_date + pd.to_timedelta(data_hr_user['time'], unit='s')
+
+            data_hr_user = data_hr_user.sort_values('hr_measure_time')
+
+            data_hr_user['AID'] = id
+
+            data_hr_user['userAccessToken'] = access_token
+
+            data_hr_user['date'] = data_hr_user['hr_measure_time'].dt.date
+
+            data_hr_user['hour'] = data_hr_user['hr_measure_time'].dt.hour
+
+            data_hr_user_hist = data_hr_user.groupby(['AID', 'userAccessToken', 'date', 'hour'])['hr'].count().reset_index().rename(columns={'hr': 'measurements'})
+
+            # merge to all hours in the day to also show hours with no data. There can be multiple dates
+            # in each dataframe so create the table with hours in a day for all dates
+            all_hours_date = pd.DataFrame()
+            for date in data_hr_user['date'].drop_duplicates():
+                hours = pd.DataFrame({'hour': range(0, 24)})
+                hours['date'] = date
+                all_hours_date = pd.concat([all_hours_date, hours])
+
+            data_hr_user_hist_out = all_hours_date.merge(data_hr_user_hist, how='left', on=['date', 'hour'])
+            data_hr_user_hist_out = data_hr_user_hist_out[['AID', 'userAccessToken', 'date', 'hour', 'measurements']]
+            data_hr_user_hist_out['measurements'] = data_hr_user_hist_out['measurements'].fillna(0)
+
+
+        except Exception as e:
+            print(e)
+            print(index, row['timeOffsetHeartRateSamples'])
+            print(row['timeOffsetHeartRateSamples'] == None)
+            print(type(row['timeOffsetHeartRateSamples']))
+    
+    data_daily_hr_hist = pd.concat([data_daily_hr_hist, data_hr_user_hist_out])
+
+    data_daily_hr_hist = data_daily_hr_hist.drop_duplicates()
+    
+    # remove the downloaded file to keep things organized
+Path.unlink(daily_download_path)
 
 
 # %%
@@ -91,10 +161,16 @@ daily_aid_overview
 date = datetime.today().strftime("%Y-%m-%d")
 processed_dir = config['YODA_MONITORING_DIR']
 
-irods_save_path = IrodsPath(session, processed_dir + '/garmin_overview_{}.csv'.format(date))
-
-with irods_save_path.open('w') as new_obj:
+# store the overview with file counts
+irods_save_path_overview = IrodsPath(session, processed_dir + '/garmin_overview_{}.csv'.format(date))
+with irods_save_path_overview.open('w') as new_obj:
 
     new_obj.write(daily_aid_overview.to_csv(sep=';', index=False).encode())
 
+# store the overview with hist
+irods_save_path_hist = IrodsPath(session, processed_dir + '/garmin_overview_hr_counts_{}.csv'.format(date))
+with irods_save_path_hist.open('w') as new_obj:
 
+    new_obj.write(data_daily_hr_hist.to_csv(sep=';', index=False).encode())
+
+# %%
