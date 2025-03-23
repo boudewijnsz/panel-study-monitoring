@@ -109,7 +109,6 @@ for index, row in data_daily_hr_cols.iterrows():
 
         # for the empty data add empty dicts to the hist dataframe
         data_hr_user_hist_out = pd.DataFrame({'AID': [id]})
-        print(data_hr_user_hist_out)
 
     else:
         try: 
