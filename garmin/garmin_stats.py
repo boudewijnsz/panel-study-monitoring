@@ -14,7 +14,8 @@ from ibridges import download
 from ibridges import upload
 
 # load the variables defined in the env file
-config = dotenv_values(Path(Path.cwd().parent, '.env'))
+config = dotenv_values(Path(Path(__file__).resolve().parent.parent, '.env'))
+
 yoda_password = dotenv_values(config['YODA'])['YODA']
 
 # start an ibridges session to create the overview of all the files present in Yoda
@@ -58,7 +59,7 @@ most_recent_daily_file = daily_files_df[daily_files_df['file_date'] == daily_fil
 print("loading data from {}".format(most_recent_daily_file))
 
 # because the file is big, streaming takes long. Therfore download and load in to dataframe
-downloads_path = Path(Path.cwd().parent, 'downloads')
+downloads_path = Path(Path(__file__).resolve().parent.parent, 'downloads')
 irods_path = IrodsPath(session, '~', most_recent_daily_file)
 download(session, irods_path, downloads_path, overwrite=True)
 
@@ -100,14 +101,15 @@ for index, row in data_daily_hr_cols.iterrows():
     start_date = row['date']
     id = row['AID']
     access_token = row['userAccessToken']
-    print(access_token)
 
 
     if row['timeOffsetHeartRateSamples'] == '{}' or row['timeOffsetHeartRateSamples'] == '':
 
         data_hr_user = pd.DataFrame({'AID': [id]})
 
-        data_hr_user_hist_out = pd.DataFrame(columns=['AID', 'userAccessToken', 'date', 'hour', 'measurements'])
+        # for the empty data add empty dicts to the hist dataframe
+        data_hr_user_hist_out = pd.DataFrame({'AID': [id]}),
+        data_hr_user_hist_out = data_hr_user_hist_out.reindex(['userAccessToken', 'date', 'hour', 'measurements'])
 
     else:
         try: 
