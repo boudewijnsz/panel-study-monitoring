@@ -34,7 +34,7 @@ def merge_garmin_exports(garmin_files_df, export_type):
     export type is the part of the filename that indicates what data is in the file, e.g. 'Daily'"""
 
     # ignore files in the processed folder
-    garmin_files_df = garmin_files_df[~garmin_files_df['yoda_path'].str.contains('processed')]
+    garmin_files_df = garmin_files_df[~garmin_files_df['yoda_path'].str.contains('processed|extra_export')]
 
     # use of capitals in the filenames are inconsistant so make lower
     files_to_process = garmin_files_df[garmin_files_df['yoda_path'].str.lower().str.contains(export_type)]['yoda_path']
