@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # %%
 # -*- coding: utf-8 -*-
 import os
@@ -12,6 +13,8 @@ from ibridges.search import search_data
 from ibridges.path import IrodsPath
 from ibridges import download
 from ibridges import upload
+
+print("processing Garmin stats")
 
 # load the variables defined in the env file
 config = dotenv_values(Path(Path(__file__).resolve().parent.parent, '.env'))

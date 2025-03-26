@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 from pathlib import Path
 import re
@@ -10,6 +11,7 @@ from ibridges import search_data
 from ibridges.interactive import Session
 from ibridges import IrodsPath
 
+print("processing Garmin data")
 
 # load the variables defined in the env file
 config = dotenv_values("./.env")

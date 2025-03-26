@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # %%
 # -*- coding: utf-8 -*-
 import sys
@@ -300,7 +301,7 @@ writer.close()
 yoda_monitoring_dir = config['YODA_MONITORING_DIR']
 
 irods_path = IrodsPath(session, '~', yoda_monitoring_dir)
-print("writing utput to yoda ")
+print("writing output to yoda ")
 upload(session, overview_path, irods_path, overwrite=True)
 
 session.close()
