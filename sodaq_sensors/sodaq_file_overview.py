@@ -27,7 +27,7 @@ session = Session(irods_env=env_file, password=yoda_password)
 file_name_ldot = config['FILE_NAME_LDOT']
 
 # name of the batch (e.g. for March 2025 'march_2025')
-batch_name = 'march_2025'
+batch_name = 'may_2025'
 
 # %%
 # to discuss:
@@ -46,7 +46,8 @@ batch_sensor_aid_keylist = pd.merge(batch_sensor_aid_keylist, keylist_track_sens
 batch_sensor_aid_keylist = batch_sensor_aid_keylist.rename(columns={'IMEI': 'GPS IMEI'})
 batch_sensor_aid_keylist = batch_sensor_aid_keylist[
     ['Studienummer', 'Naam', 'Email', 'pakket verstuurd',
-       'pakket retour', 'IMEI dynamisch', 'IMEI statisch', 'QR CODE', 'GPS IMEI']
+       'pakket retour', 'IMEI dynamisch', 'short_code_dynamisch', 
+       'IMEI statisch', 'short_code_statisch', 'QR CODE', 'GPS IMEI']
        ]
 
 
