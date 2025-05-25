@@ -15,7 +15,8 @@ from ibridges.path import IrodsPath
 from ibridges import upload
 
 # load the variables defined in the env file
-config = dotenv_values("./.env")
+config_path = Path(Path().resolve().parent, '.env')
+config = dotenv_values(config_path)
 yoda_password = dotenv_values(config['YODA'])['YODA']
 
 # start an ibridges session to create the overview of all the files present in Yoda
@@ -42,7 +43,7 @@ batch_sensor_aid_keylist = pd.read_excel(file_name_ldot, dtype=str)
 # add the GPS sensor IMEI
 track_key_table = config['TRACK_KEY_TABLE']
 keylist_track_sensors = pd.read_excel(track_key_table, dtype=str)
-batch_sensor_aid_keylist = pd.merge(batch_sensor_aid_keylist, keylist_track_sensors, how='left', left_on='GPS', right_on='QR CODE')
+batch_sensor_aid_keylist = pd.merge(batch_sensor_aid_keylist, keylist_track_sensors, how='left', on='QR CODE')
 batch_sensor_aid_keylist = batch_sensor_aid_keylist.rename(columns={'IMEI': 'GPS IMEI'})
 batch_sensor_aid_keylist = batch_sensor_aid_keylist[
     ['Studienummer', 'Naam', 'Email', 'pakket verstuurd',
@@ -255,7 +256,7 @@ date_today = datetime.today().strftime('%Y-%m-%d')
 
 # %%
 # write the output file
-overview_path = "sodaq_sensors/overview_sensor_files_batch_{}.xlsx".format(batch_name)
+overview_path = Path(Path().resolve(), "overview_sensor_files_batch_{}.xlsx".format(batch_name))
 
 writer = pd.ExcelWriter(overview_path, engine='xlsxwriter')
 
@@ -306,9 +307,3 @@ print("writing output to yoda ")
 upload(session, overview_path, irods_path, overwrite=True)
 
 session.close()
-
-
-
-
-
-# %%
