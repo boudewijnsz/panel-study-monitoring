@@ -15,7 +15,7 @@ from ibridges.path import IrodsPath
 from ibridges import upload
 
 # load the variables defined in the env file
-config_path = Path(Path().resolve().parent, '.env')
+config_path = Path(Path().resolve(), '.env')
 config = dotenv_values(config_path)
 yoda_password = dotenv_values(config['YODA'])['YODA']
 
@@ -108,26 +108,22 @@ track_files = get_yoda_files('research-expanse-sodaq-nl/SODAQ TRACK')
 def merge_sensor_data(sensor_type):
     
     if sensor_type not in ['static', 'dynamic', 'gps']:
-        
         print('Sensor type should be "static" or "dynamic", "gps"')
         return
-    
     if sensor_type == 'gps':
-        
         sensor_files = track_files
     else:
-        
         sensor_files = air_files
     
-    sensor_columns = {'static': 'IMEI statisch',
-                      'dynamic': 'IMEI dynamisch',
-                      'gps': 'GPS IMEI'}
+    sensor_columns = {'static': ['IMEI statisch', 'short_code_statisch'],
+                      'dynamic': ['IMEI dynamisch', 'short_code_dynamisch'],
+                      'gps': ['GPS IMEI', 'QR CODE']}
     
     sensor_column = sensor_columns[sensor_type]
     
     sensor_data = (
-        batch_sensor_aid_keylist[['Studienummer', 'Naam', 'Email', sensor_column, 'pakket verstuurd', 'pakket retour']]
-        .merge(sensor_files, how='left', left_on=sensor_column, right_on='IMEI')
+        batch_sensor_aid_keylist[['Studienummer', 'Naam', 'Email', 'pakket verstuurd', 'pakket retour'] + sensor_column]
+        .merge(sensor_files, how='left', left_on=sensor_column[0], right_on='IMEI')
         )
     
     return sensor_data
@@ -137,15 +133,15 @@ def count_sensor_files(sensor_files, sensor_type):
     
     if sensor_type == 'static':
         
-        imei_column = 'IMEI statisch'
+        imei_column = ['IMEI statisch', 'short_code_statisch']
         
     elif sensor_type == 'dynamic':
     
-        imei_column = 'IMEI dynamisch'
+        imei_column = ['IMEI dynamisch', 'short_code_dynamisch']
         
     elif sensor_type == 'gps':
         
-        imei_column = 'GPS IMEI'
+        imei_column = ['GPS IMEI', 'QR CODE']
         
     else:
         print('Sensor type should be "static", "dynamic" or "gps"')
@@ -156,35 +152,33 @@ def count_sensor_files(sensor_files, sensor_type):
         sensor_files
         .loc[((sensor_files['file_date'] >= pd.to_datetime(sensor_files['pakket verstuurd'])) &
               (sensor_files['file_date'] < pd.to_datetime(sensor_files['pakket retour'])))]
-        .filter(['Studienummer', imei_column, 'file_path'])
-        .rename(columns={imei_column: 'IMEI'})
-        .groupby(['Studienummer', 'IMEI'])
+        .filter(['Studienummer', 'Email', 'file_path'] + imei_column)
+        .groupby(['Studienummer', 'Email'] + imei_column)
         .count()
         .reset_index()
         .assign(sensor_type = sensor_type)
-        .rename(columns={'file_path': 'total_files_present'})
+        .rename(columns={'file_path': 'total_files_present',
+                         imei_column[0]: 'IMEI',
+                         imei_column[1]: 'short_code'})
         )
     
     # sometimes files are missing completely so merge back to original list of
     # IMEIS
     batch_IMEIs =  batch_sensor_aid_keylist[
-        ['Studienummer',
-         imei_column
-         # 'naam_',
-         # 'achternaam_',
-         # 'e_mailadres'
-         ]
-        ]
+        ['Studienummer', 'Email'] + imei_column
+    ]
+
                       
     counted_IMEIs = count_sensor_files['IMEI']
     
     missing_IMEIs = (
         batch_IMEIs
-        .merge(counted_IMEIs, how='outer', left_on=imei_column, right_on='IMEI')
+        .merge(counted_IMEIs, how='outer', left_on=imei_column[0], right_on='IMEI')
         )
     
    
-    missing_IMEIs = missing_IMEIs[missing_IMEIs['IMEI'].isna()].drop('IMEI', axis=1).rename(columns={imei_column: 'IMEI'})
+    missing_IMEIs = missing_IMEIs[missing_IMEIs['IMEI'].isna()].drop('IMEI', axis=1).rename(columns={imei_column[0]: 'IMEI',
+                                                                                                     imei_column[1]: 'short_code'})
 
     missing_IMEIs['sensor_type'] = sensor_type
     missing_IMEIs['total_files_present'] = 0
@@ -227,18 +221,22 @@ def get_sensor_dates(sensor_files, sensor_type):
     return sensor_dates
 
 # %%
+print('processing gps')
 gps_sensors = merge_sensor_data('gps')
 gps_sensors_count = count_sensor_files(gps_sensors, 'gps')
 gps_sensors_count_dates = get_sensor_dates(gps_sensors, 'gps')
 
+print('processing static sensors')
 static_air_sensors = merge_sensor_data('static')
 static_air_sensors_count = count_sensor_files(static_air_sensors, 'static')
 static_air_sensors_count_dates = get_sensor_dates(static_air_sensors, 'static')
 
+print('processing dynamic sensors')
 dynamic_air_sensors = merge_sensor_data('dynamic')
 dynamic_air_sensors_count = count_sensor_files(dynamic_air_sensors, 'dynamic')
 dynamic_air_sensors_count_dates = get_sensor_dates(dynamic_air_sensors, 'dynamic')
 
+print('creating overview')
 gps_overview = gps_sensors_count.merge(gps_sensors_count_dates, how='left', on=['Studienummer', 'sensor_type'])
 static_overview = static_air_sensors_count.merge(static_air_sensors_count_dates, how='left', on=['Studienummer', 'sensor_type'])
 dynamic_overview = dynamic_air_sensors_count.merge(dynamic_air_sensors_count_dates, how='left', on=['Studienummer', 'sensor_type'])
@@ -251,6 +249,7 @@ overview_static_dynamic_gps = pd.concat(
 overview_static_dynamic_gps.dropna(subset=['Studienummer'], inplace=True)
 
 overview_static_dynamic_gps.drop_duplicates(inplace=True)
+print('overview completed')
 
 date_today = datetime.today().strftime('%Y-%m-%d')
 
@@ -297,7 +296,7 @@ worksheet.autofit()
 
 writer.close()
 
-# %%
+
 # write the file to the Yoda monitoring folder
 
 yoda_monitoring_dir = config['YODA_MONITORING_DIR']
@@ -307,3 +306,5 @@ print("writing output to yoda ")
 upload(session, overview_path, irods_path, overwrite=True)
 
 session.close()
+
+# %%
