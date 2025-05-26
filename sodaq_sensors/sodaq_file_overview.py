@@ -15,7 +15,7 @@ from ibridges.path import IrodsPath
 from ibridges import upload
 
 # load the variables defined in the env file
-config_path = Path(Path().resolve(), '.env')
+config_path = Path(Path(__file__).parent.parent, '.env')
 config = dotenv_values(config_path)
 yoda_password = dotenv_values(config['YODA'])['YODA']
 
