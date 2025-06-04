@@ -27,28 +27,16 @@ session = Session(irods_env=env_file, password=yoda_password)
 
 # %%
 # load the key table with AID and Access token
-key_table_file = config['GARMIN_KEY_TABLE_FILE']
+key_table_file = config['FILE_NAME_LDOT']
 
-# the data are in different tabs with inconsistent names so parse with loop and dict
-key_table_xlsx = pd.ExcelFile(key_table_file)
-
-key_table_tabs = {'November': 'November',
-                  'februari': 'February',
-                  'Maart': 'March'}
-
-key_table = pd.DataFrame()
-
-for k, v in key_table_tabs.items():
-    key_table_batch = pd.read_excel(key_table_xlsx, k, dtype=str)
-    key_table_batch['month'] = v
-
-    key_table = pd.concat([key_table, key_table_batch])
-
-
+# only read data from the current measurement week
+key_table = pd.read_excel(key_table_file, dtype=str)
 
 
 # %%
-# load the most recent overwiew of daily Garmin data
+# load the most recent overwiew of daily Garmin data, this file contains
+# the most relevant data like HR and number of steps. The daily file
+# is created by the script garmin_data_overview.py
 garmin_processed_dir_yoda = 'research-expanse-garmin/processed/'
 daily_files = search_data(session, path=str(garmin_processed_dir_yoda), path_pattern="daily%")
 
@@ -61,7 +49,7 @@ most_recent_daily_file = daily_files_df[daily_files_df['file_date'] == daily_fil
 
 print("loading data from {}".format(most_recent_daily_file))
 
-# because the file is big, streaming takes long. Therfore download and load in to dataframe
+# because the file is big, streaming takes long. Therefore download and load in to dataframe
 downloads_path = Path(Path(__file__).resolve().parent.parent, 'downloads')
 irods_path = IrodsPath(session, '~', most_recent_daily_file)
 download(session, irods_path, downloads_path, overwrite=True)
@@ -72,22 +60,20 @@ most_recent_daily = pd.read_csv(daily_download_path, sep=';')
 
 
 # %%
-most_recent_daily_aid = key_table[['AID', 'month', 'Access token']].merge(most_recent_daily, how='left', left_on='Access token', right_on='userAccessToken')
+# add AID to the daily data
+most_recent_daily_aid = key_table[['Studienummer', 'garmin_access_token']].merge(most_recent_daily, how='left', left_on='garmin_access_token', right_on='userAccessToken')
 
-daily_aid_counts = most_recent_daily_aid[['AID', 'Access token', 'month', 'calendarDate']].groupby(['AID', 'Access token', 'month']).nunique().reset_index()
+daily_aid_counts = most_recent_daily_aid[['Studienummer', 'garmin_access_token', 'calendarDate']].groupby(['Studienummer', 'garmin_access_token']).nunique().reset_index()
 
-daily_aid_min_date = most_recent_daily_aid[['AID', 'calendarDate']].groupby('AID').min().reset_index().rename(columns={'calendarDate': 'min_date'})
-daily_aid_max_date = most_recent_daily_aid[['AID', 'calendarDate']].groupby('AID').max().reset_index().rename(columns={'calendarDate': 'max_date'})
+daily_aid_min_date = most_recent_daily_aid[['Studienummer', 'calendarDate']].groupby('Studienummer').min().reset_index().rename(columns={'calendarDate': 'min_date'})
+daily_aid_max_date = most_recent_daily_aid[['Studienummer', 'calendarDate']].groupby('Studienummer').max().reset_index().rename(columns={'calendarDate': 'max_date'})
 
-daily_aid_overview = daily_aid_counts.merge(daily_aid_min_date, how='left', on='AID').merge(daily_aid_max_date, how='left', on='AID')
+daily_aid_overview = daily_aid_counts.merge(daily_aid_min_date, how='left', on='Studienummer').merge(daily_aid_max_date, how='left', on='Studienummer')
 
-daily_aid_counts= daily_aid_counts.rename(columns={'calendarDate': 'file_available',
-                                                   'AID': 'Studienummer'})
-
-daily_aid_overview = daily_aid_overview.sort_values('month')
+daily_aid_counts= daily_aid_counts.rename(columns={'calendarDate': 'file_available'})
 
 # process heart rate data for participants
-data_daily_hr_cols = most_recent_daily_aid[['AID', 'userAccessToken', 'startTimeInSeconds', 'timeOffsetHeartRateSamples']]
+data_daily_hr_cols = most_recent_daily_aid[['Studienummer', 'userAccessToken', 'startTimeInSeconds', 'timeOffsetHeartRateSamples']]
 
 data_daily_hr_cols['date'] = pd.to_datetime(data_daily_hr_cols['startTimeInSeconds'], unit='s').dt.tz_localize('UTC').dt.tz_convert('Europe/Amsterdam')
 
@@ -102,16 +88,16 @@ data_daily_hr_cols = data_daily_hr_cols.fillna('')
 for index, row in data_daily_hr_cols.iterrows():
 
     start_date = row['date']
-    id = row['AID']
+    id = row['Studienummer']
     access_token = row['userAccessToken']
 
 
     if row['timeOffsetHeartRateSamples'] == '{}' or row['timeOffsetHeartRateSamples'] == '':
 
-        data_hr_user = pd.DataFrame({'AID': [id]})
+        data_hr_user = pd.DataFrame({'Studienummer': [id]})
 
         # for the empty data add empty dicts to the hist dataframe
-        data_hr_user_hist_out = pd.DataFrame({'AID': [id]})
+        data_hr_user_hist_out = pd.DataFrame({'Studienummer': [id]})
 
     else:
         try: 
@@ -123,7 +109,7 @@ for index, row in data_daily_hr_cols.iterrows():
 
             data_hr_user = data_hr_user.sort_values('hr_measure_time')
 
-            data_hr_user['AID'] = id
+            data_hr_user['Studienummer'] = id
 
             data_hr_user['userAccessToken'] = access_token
 
@@ -131,7 +117,7 @@ for index, row in data_daily_hr_cols.iterrows():
 
             data_hr_user['hour'] = data_hr_user['hr_measure_time'].dt.hour
 
-            data_hr_user_hist = data_hr_user.groupby(['AID', 'userAccessToken', 'date', 'hour'])['hr'].count().reset_index().rename(columns={'hr': 'measurements'})
+            data_hr_user_hist = data_hr_user.groupby(['Studienummer', 'userAccessToken', 'date', 'hour'])['hr'].count().reset_index().rename(columns={'hr': 'measurements'})
             data_hr_user_hist['measurements'] = data_hr_user_hist['measurements'].astype(int) 
 
 
@@ -144,7 +130,7 @@ for index, row in data_daily_hr_cols.iterrows():
                 all_hours_date = pd.concat([all_hours_date, hours])
 
             data_hr_user_hist_out = all_hours_date.merge(data_hr_user_hist, how='left', on=['date', 'hour'])
-            data_hr_user_hist_out = data_hr_user_hist_out[['AID', 'userAccessToken', 'date', 'hour', 'measurements']]
+            data_hr_user_hist_out = data_hr_user_hist_out[['Studienummer', 'userAccessToken', 'date', 'hour', 'measurements']]
             data_hr_user_hist_out['measurements'] = data_hr_user_hist_out['measurements'].fillna(0)
 
 
@@ -180,3 +166,8 @@ with irods_save_path_hist.open('w') as new_obj:
     new_obj.write(data_daily_hr_hist.to_csv(sep=';', index=False).encode())
 
 # %%
+# store a version of the hist data in the downloads folder to add the data to 
+# the sodaq sensor overview
+data_daily_hr_hist.to_csv(
+    Path(downloads_path, 'data_daily_hr_hist.csv'), index=False
+)
