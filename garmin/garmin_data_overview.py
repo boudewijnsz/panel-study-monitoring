@@ -14,7 +14,9 @@ from ibridges import IrodsPath
 print("processing Garmin data")
 
 # load the variables defined in the env file
-config = dotenv_values(Path(Path(__file__).resolve().parent.parent, '.env'))
+config_path = "O:\DGK\IRAS\EEPI\Projects\Exposome-Panel Study\Datamanagement\study_admin_code\panel-study-monitoring\.env"
+config_path = Path(Path(__file__).resolve().parent.parent, '.env')
+config = dotenv_values(config_path)
 
 yoda_password = dotenv_values(config['YODA'])['YODA']
 
@@ -29,7 +31,7 @@ garmin_files = search_data(session, path=garmin_path, path_pattern="%")
 garmin_files_df = pd.DataFrame({'yoda_path': [str(p) for p in garmin_files]})
 
 # only process data from start date of measurement week
-startdate = '2025-05-23'
+startdate = config['MEASUREMENT_WEEK_START_DATE']
 garmin_files_df['startdate'] = garmin_files_df['yoda_path'].str.extract('(\\d{4}-\\d{2}-\\d{2})')
 garmin_files_df['startdate'] = pd.to_datetime(garmin_files_df['startdate'])
 
