@@ -27,3 +27,5 @@ BATCH_NAME = the name of the batch, used for file naming
 
 FILE_NAME_LDOT = this is the export csv file that is created by the script 
 `participant_file_prep.py`
+
+4. run the file `panel_monitoring.sh` to test. On the SRC VM, this is scheduled using cron
