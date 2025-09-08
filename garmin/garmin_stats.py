@@ -17,7 +17,9 @@ from ibridges import upload
 print("processing Garmin stats")
 
 # load the variables defined in the env file
-config = dotenv_values(Path(Path(__file__).resolve().parent.parent, '.env'))
+# config_path = r"O:\DGK\IRAS\EEPI\Projects\Exposome-Panel Study\Datamanagement\study_admin_code\panel-study-monitoring\.env"
+config_path = Path(Path(__file__).resolve().parent.parent, '.env')
+config = dotenv_values(config_path)
 
 yoda_password = dotenv_values(config['YODA'])['YODA']
 
@@ -25,15 +27,10 @@ yoda_password = dotenv_values(config['YODA'])['YODA']
 env_file = Path.expanduser(Path('~')).joinpath(".irods", "irods_environment.json")
 session = Session(irods_env=env_file, password=yoda_password)
 
-# %%
-# load the key table with AID and Access token
-key_table_file = config['FILE_NAME_LDOT']
+keylist_path = IrodsPath(session, config['YODA_MMWEEK_DIR'], config['FILE_NAME_LDOT'])
+with keylist_path.open('r') as stream:
+    key_table = pd.read_csv(stream, dtype=str)
 
-# only read data from the current measurement week
-key_table = pd.read_excel(key_table_file, dtype=str)
-
-
-# %%
 # load the most recent overwiew of daily Garmin data, this file contains
 # the most relevant data like HR and number of steps. The daily file
 # is created by the script garmin_data_overview.py
