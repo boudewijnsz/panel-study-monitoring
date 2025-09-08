@@ -58,14 +58,15 @@ batch_sensor_aid_keylist = (
     batch_sensor_aid_keylist
     .rename(columns={'IMEI': 'GPS IMEI',
                     'Short code dynamisch': 'short_code_dynamisch',
-                    'Short code statisch': 'short_code_statisch'})
+                    'Short code statisch': 'short_code_statisch',
+                    'access token': 'garmin_access_token'})
     )
 
 batch_sensor_aid_keylist = batch_sensor_aid_keylist[
     ['Studienummer', 'Naam', 'Email', 'pakket verstuurd',
        'pakket retour', 'IMEI dynamisch', 'short_code_dynamisch', 
        'IMEI statisch', 'short_code_statisch', 'QR CODE', 'GPS IMEI',
-       'access token']
+       'garmin_access_token']
        ]
 
 # store the file in Yoda
