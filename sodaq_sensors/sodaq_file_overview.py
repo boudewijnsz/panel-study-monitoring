@@ -241,10 +241,80 @@ gps_overview = gps_sensors_count.merge(gps_sensors_count_dates, how='left', on=[
 static_overview = static_air_sensors_count.merge(static_air_sensors_count_dates, how='left', on=['Studienummer', 'sensor_type'])
 dynamic_overview = dynamic_air_sensors_count.merge(dynamic_air_sensors_count_dates, how='left', on=['Studienummer', 'sensor_type'])
 
+
+# create the file with the full overview
 overview_static_dynamic_gps = pd.concat(
     [static_overview, 
      dynamic_overview,
      gps_overview]).sort_values(['Studienummer', 'sensor_type'])
+
+# add garmin data, these have been produced by script garmin_stats.py
+garmin_data_path = Path(
+    Path(__file__).resolve().parent.parent, 'downloads', 'data_daily_hr_hist.csv'
+    )
+
+garmin_data = pd.read_csv(garmin_data_path, 
+                          dtype={'Studienummer': str,
+                                 'date': str,
+                                 'measurements': 'Int32'})
+
+# count the number of days with garmin data. The original data shows recordings
+# per hour so need to do some grouping
+garmin_data_daily = (
+    garmin_data
+    .groupby(['Studienummer', 'date'], dropna=False)['measurements']
+    .sum()
+    .reset_index()
+    )
+
+
+garmin_data_daily['measurements'] = np.where(
+    garmin_data_daily['measurements'] >= 1,
+    1,
+    0
+)
+
+# split the data so that when concatenating data, also the participants
+# without Garmin data get a Garmin row in the overview
+no_garmin_data = (
+    garmin_data_daily[garmin_data_daily['date'].isna()]
+    .assign(sensor_type = 'garmin')
+    .assign(total_files_present = 0)
+    .drop(['date', 'measurements'], axis=1)
+    )
+
+garmin_data_present = garmin_data_daily.dropna(subset=['date', 'Studienummer'])
+
+garmin_data_daily_pivot = (
+    garmin_data_present
+    .assign(file_date = garmin_data_daily['date'].astype('string'))
+    .rename(columns={'measurements': 'total_files_present'})
+    .assign(files_present = np.where(garmin_data_present['measurements'] >= 1,
+                                     'yes',
+                                     ''))
+    .pivot(columns='date', index=['Studienummer', 'total_files_present'], 
+           values='files_present')
+    .reset_index()
+    .assign(sensor_type = 'garmin')
+    )
+
+garmin_data_daily_pivot = pd.concat([no_garmin_data, garmin_data_daily_pivot])
+
+overview_static_dynamic_gps = pd.concat(
+    [overview_static_dynamic_gps, garmin_data_daily_pivot]
+    ).sort_values(['Studienummer', 'sensor_type'])
+
+# Garmin measurements can start before sensor measurements which means the order
+# of columns is not correct (garmin columns are added at the end). Reorder date
+# columns
+overview_columns = overview_static_dynamic_gps.columns
+overview_date_columns = [c for c in overview_columns if re.match('\\d{4}', c)]
+overview_date_columns.sort()
+overview_non_date_columns = [c for c in overview_columns if not re.match('\\d{4}', c)]
+
+overview_static_dynamic_gps = overview_static_dynamic_gps[
+    overview_non_date_columns + overview_date_columns
+]
 
 overview_static_dynamic_gps.dropna(subset=['Studienummer'], inplace=True)
 
