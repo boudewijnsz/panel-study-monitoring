@@ -14,7 +14,7 @@ from ibridges import IrodsPath
 print("processing Garmin data")
 
 # load the variables defined in the env file
-config_path = "O:\DGK\IRAS\EEPI\Projects\Exposome-Panel Study\Datamanagement\study_admin_code\panel-study-monitoring\.env"
+# config_path = "O:\DGK\IRAS\EEPI\Projects\Exposome-Panel Study\Datamanagement\study_admin_code\panel-study-monitoring\.env"
 config_path = Path(Path(__file__).resolve().parent.parent, '.env')
 config = dotenv_values(config_path)
 

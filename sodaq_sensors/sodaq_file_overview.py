@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# %%
 # -*- coding: utf-8 -*-
 import sys
 import os
@@ -23,34 +22,18 @@ yoda_password = dotenv_values(config['YODA'])['YODA']
 env_file = Path.expanduser(Path('~')).joinpath(".irods", "irods_environment.json")
 session = Session(irods_env=env_file, password=yoda_password)
 
-# %%
+# name of the batch (e.g. for March 2025 'march_2025')
+batch_name = config['BATCH_NAME']
 # name of the file exported from Ldot
 file_name_ldot = config['FILE_NAME_LDOT']
 
-# name of the batch (e.g. for March 2025 'march_2025')
-batch_name = 'may_2025'
-
-# %%
-# to discuss:
-# - take earliers data when there are multiple or actual date per participant?
-# - same for batch end date
-
-# %%
-# first run download the overview from Ldot that contains the AID and sending dates for the sensors
-
-batch_sensor_aid_keylist = pd.read_excel(file_name_ldot, dtype=str)
+# load the keylist created using the script "participant_file_prep.py"
+keylist_path = IrodsPath(session, config['YODA_MMWEEK_DIR'], config['FILE_NAME_LDOT'])
+with keylist_path.open('r') as stream:
+    batch_sensor_aid_keylist = pd.read_csv(stream, sep=';', dtype=str)
 
 # add the GPS sensor IMEI
 track_key_table = config['TRACK_KEY_TABLE']
-keylist_track_sensors = pd.read_excel(track_key_table, dtype=str)
-batch_sensor_aid_keylist = pd.merge(batch_sensor_aid_keylist, keylist_track_sensors, how='left', on='QR CODE')
-batch_sensor_aid_keylist = batch_sensor_aid_keylist.rename(columns={'IMEI': 'GPS IMEI'})
-batch_sensor_aid_keylist = batch_sensor_aid_keylist[
-    ['Studienummer', 'Naam', 'Email', 'pakket verstuurd',
-       'pakket retour', 'IMEI dynamisch', 'short_code_dynamisch', 
-       'IMEI statisch', 'short_code_statisch', 'QR CODE', 'GPS IMEI']
-       ]
-
 
 # modify data types to ease adding missing values
 batch_sensor_aid_keylist['GPS IMEI'] = batch_sensor_aid_keylist['GPS IMEI'].astype(str)
@@ -60,7 +43,7 @@ batch_sensor_aid_keylist['pakket retour'] = pd.to_datetime(batch_sensor_aid_keyl
 
 batch_sensor_aid_keylist = batch_sensor_aid_keylist.drop_duplicates()
 
-# %%
+
 # set the sending date for the current batch. Only the files in Yoda sent
 # after this date and before today's date are taken into account.
 # sending dates are available in the Ldot export but sometimes there are multiple dates, take the earliest
@@ -73,7 +56,7 @@ batch_sensor_aid_keylist['pakket retour'] = batch_sensor_aid_keylist['pakket ret
 
 batch_sensor_aid_keylist
 
-# %%
+
 # generate an overview of all available data on Yoda
 def get_yoda_files(yoda_path): 
 
@@ -102,7 +85,7 @@ air_files = get_yoda_files('research-expanse-sodaq-nl/SODAQ AIR')
 track_files = get_yoda_files('research-expanse-sodaq-nl/SODAQ TRACK')
 
 
-# %%
+
 # declare the functions to map the data
 
 def merge_sensor_data(sensor_type):
@@ -197,7 +180,7 @@ def get_sensor_dates(sensor_files, sensor_type):
     
     all_dates = pd.DataFrame({
         'date':
-        pd.date_range(sensor_files['pakket verstuurd'].dt.date.min(), sensor_files['pakket retour'].dt.date.max()).to_list()
+        pd.date_range(sensor_files['pakket verstuurd'].min(), sensor_files['pakket retour'].max()).to_list()
         })
     
     sensor_dates = (
@@ -220,7 +203,7 @@ def get_sensor_dates(sensor_files, sensor_type):
     
     return sensor_dates
 
-# %%
+
 print('processing gps')
 gps_sensors = merge_sensor_data('gps')
 gps_sensors_count = count_sensor_files(gps_sensors, 'gps')
