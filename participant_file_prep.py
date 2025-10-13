@@ -6,11 +6,13 @@ from ibridges.path import IrodsPath
 from ibridges import upload
 
 # these two file paths need to be changed before each new measurement week
-ldot_file_path = r"O:\DGK\IRAS\EEPI\Privacy\Exposome-Panel Study\Meetweken\Meetweken september 2025\MEMIC_Overview_Apparaatnummers deelnemers meetweek september 2025_20250908_14_36.csv"
-garmin_file_path = r"O:\DGK\IRAS\EEPI\Privacy\Exposome-Panel Study\Meetweken\Meetweken september 2025\garmin_participants_sep_2025_2_linked.xlsx"
+ldot_file_path = r"O:\DGK\IRAS\EEPI\Privacy\Exposome-Panel Study\Meetweken\Meetweken oktober 2025\MEMIC_Overview_Apparaatnummers deelnemers meetweek oktober 2025_20251013_21_08.csv"
+garmin_file_path = r"O:\DGK\IRAS\EEPI\Privacy\Exposome-Panel Study\Meetweken\Meetweken oktober 2025\garmin_participants_okt_2025_linked.xlsx"
+
+package_sending_date = '2025-10-10'
 
 # load the variables defined in the env file
-# config_path = 'O:\DGK\IRAS\EEPI\Projects\Exposome-Panel Study\Datamanagement\study_admin_code\panel-study-monitoring\.env'
+# config_path = r'O:\DGK\IRAS\EEPI\Projects\Exposome-Panel Study\Datamanagement\study_admin_code\panel-study-monitoring\.env'
 config_path = Path(Path(__file__).parent, '.env')
 config = dotenv_values(config_path)
 yoda_password = dotenv_values(config['YODA'])['YODA']
@@ -25,7 +27,8 @@ ldot_data = pd.read_csv(ldot_file_path, sep=';', dtype=str)
 ldot_data = ldot_data.loc[ldot_data['Deelname'] == 'Ja']
 
 # remove the time indicator for the variable pakket verstuurd
-ldot_data['pakket verstuurd'] = ldot_data['pakket verstuurd'].str.extract('([0-9]{1,2}-[0-9]{1,2}-[0-9]{4})')
+# set manually at top of the script as this sometimes doesn't match Ldot
+ldot_data['pakket verstuurd'] = package_sending_date
 
 # merge the Garmin Access Token
 garmin_data = pd.read_excel(garmin_file_path, dtype=str)

@@ -8,7 +8,7 @@ computer and run the scheduled script on the Surf Research Cloud VM.
 The files should be stored in the Yoda folder research-panel-monitoring/source_files
 
 ### steps to follow
-1. Make sure your Yoda password is stored in the file indicated in the .env file
+1. Make sure your Yoda password is stored in the file indicated in the .env file. You can use file_transfer.bat to send the file to the SRC VM
 on both your local computer and the SRC VM
 2. modify the following paramaters in the .env file:
 

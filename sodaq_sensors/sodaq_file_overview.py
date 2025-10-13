@@ -1,7 +1,5 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-import sys
-import os
 import re
 from pathlib import Path
 from datetime import datetime
@@ -14,6 +12,7 @@ from ibridges.path import IrodsPath
 from ibridges import upload
 
 # load the variables defined in the env file
+# config_path = r"O:\DGK\IRAS\EEPI\Projects\Exposome-Panel Study\Datamanagement\study_admin_code\panel-study-monitoring\.env"
 config_path = Path(Path(__file__).parent.parent, '.env')
 config = dotenv_values(config_path)
 yoda_password = dotenv_values(config['YODA'])['YODA']
@@ -84,10 +83,7 @@ def get_yoda_files(yoda_path):
 air_files = get_yoda_files('research-expanse-sodaq-nl/SODAQ AIR')
 track_files = get_yoda_files('research-expanse-sodaq-nl/SODAQ TRACK')
 
-
-
 # declare the functions to map the data
-
 def merge_sensor_data(sensor_type):
     
     if sensor_type not in ['static', 'dynamic', 'gps']:
