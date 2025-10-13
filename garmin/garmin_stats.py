@@ -161,6 +161,16 @@ if most_recent_daily.shape[0] > 0:
 
         new_obj.write(data_daily_hr_hist.to_csv(sep=';', index=False).encode())
 
+    # sometimes there are jsons but they don't contain data from the current batch
+    # that also give issues. In that case some columns need to be added
+
+    if len(data_daily_hr_hist.columns) == 1:
+        data_daily_hr_hist = data_daily_hr_hist.assign(userAccessToken = '',
+                                                        date = '',
+                                                        hour = '',
+                                                        measurements = '') 
+        
+
 else:
     # in case no data yet for Garmins
     data_daily_hr_hist = pd.DataFrame(
