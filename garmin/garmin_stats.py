@@ -166,7 +166,7 @@ if most_recent_daily.shape[0] > 0:
 
     if len(data_daily_hr_hist.columns) == 1:
         data_daily_hr_hist = data_daily_hr_hist.assign(userAccessToken = '',
-                                                        date = '',
+                                                        date = date,
                                                         hour = '',
                                                         measurements = '') 
         
