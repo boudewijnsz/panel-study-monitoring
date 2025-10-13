@@ -232,6 +232,8 @@ garmin_data_path = Path(
     Path(__file__).resolve().parent.parent, 'downloads', 'data_daily_hr_hist.csv'
     )
 
+# garmin_data_path = r"O:\DGK\IRAS\EEPI\Projects\Exposome-Panel Study\Datamanagement\study_admin_code\panel-study-monitoring\downloads\data_daily_hr_hist.csv"
+
 garmin_data = pd.read_csv(garmin_data_path, 
                           dtype={'Studienummer': str,
                                  'date': str,
@@ -302,7 +304,7 @@ print('overview completed')
 
 date_today = datetime.today().strftime('%Y-%m-%d')
 
-# %%
+
 # write the output file
 overview_path = Path(Path().resolve(), "overview_sensor_files_batch_{}.xlsx".format(batch_name))
 
@@ -355,5 +357,3 @@ print("writing output to yoda ")
 upload(session, overview_path, irods_path, overwrite=True)
 
 session.close()
-
-# %%
