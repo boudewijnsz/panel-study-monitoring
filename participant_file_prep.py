@@ -6,10 +6,10 @@ from ibridges.path import IrodsPath
 from ibridges import upload
 
 # these two file paths need to be changed before each new measurement week
-ldot_file_path = r"O:\DGK\IRAS\EEPI\Privacy\Exposome-Panel Study\Meetweken\Meetweken oktober 2025\MEMIC_Overview_Apparaatnummers deelnemers meetweek oktober 2025_20251013_21_08.csv"
-garmin_file_path = r"O:\DGK\IRAS\EEPI\Privacy\Exposome-Panel Study\Meetweken\Meetweken oktober 2025\garmin_participants_okt_2025_linked.xlsx"
+ldot_file_path = r"O:\DGK\IRAS\EEPI\Privacy\Exposome-Panel Study\Meetweken\Meetweken januari 2026\MEMIC_Overview_Apparaatnummers deelnemers meetweek januari 2026_20260126_20_16.csv"
+garmin_file_path = r"O:\DGK\IRAS\EEPI\Privacy\Exposome-Panel Study\Meetweken\Meetweken januari 2026\garmin_participants_jan_2026_linked.xlsx"
 
-package_sending_date = '2025-10-10'
+package_sending_date = '2026-01-22'
 
 # load the variables defined in the env file
 # config_path = r'O:\DGK\IRAS\EEPI\Projects\Exposome-Panel Study\Datamanagement\study_admin_code\panel-study-monitoring\.env'
@@ -80,4 +80,4 @@ batch_sensor_aid_keylist.to_csv(keylist_path, index=False, sep=';')
 
 irods_path = IrodsPath(session, config['YODA_MMWEEK_DIR'], config['FILE_NAME_LDOT'])
 print("writing output to yoda ")
-upload(session, keylist_path, irods_path, overwrite=True)
+upload(keylist_path, irods_path, overwrite=True)
