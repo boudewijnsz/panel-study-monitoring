@@ -47,7 +47,7 @@ print("loading data from {}".format(most_recent_daily_file))
 # downloads_path = r"O:\DGK\IRAS\EEPI\Projects\Exposome-Panel Study\Datamanagement\study_admin_code\panel-study-monitoring\downloads"
 downloads_path = Path(Path(__file__).resolve().parent.parent, 'downloads')
 irods_path = IrodsPath(session, '~', most_recent_daily_file)
-download(session, irods_path, downloads_path, overwrite=True)
+download(irods_path, downloads_path, overwrite=True)
 
 daily_download_path = Path(downloads_path, Path(most_recent_daily_file).name)
 

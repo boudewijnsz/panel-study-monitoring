@@ -352,8 +352,8 @@ writer.close()
 
 yoda_monitoring_dir = config['YODA_MONITORING_DIR']
 
-irods_path = IrodsPath(session, '~', yoda_monitoring_dir)
+irods_path = IrodsPath(session, '~', yoda_monitoring_dir, 'overviews_monitoring')
 print("writing output to yoda ")
-upload(session, overview_path, irods_path, overwrite=True)
+upload(overview_path, irods_path, overwrite=True)
 
 session.close()
