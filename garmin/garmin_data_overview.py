@@ -11,6 +11,9 @@ from ibridges import search_data
 from ibridges.interactive import Session
 from ibridges import IrodsPath
 
+# this script creates csv files from the Garmin json files stored in Yoda. A
+# csv file is created for each day, files are stored in yoda
+
 print("processing Garmin data")
 
 # load the variables defined in the env file
@@ -100,11 +103,11 @@ def merge_garmin_exports(garmin_files_df, export_type):
     return loaded_data
 
 
-merge_garmin_exports(garmin_files_df, 'daily')
-merge_garmin_exports(garmin_files_df, 'stress')
-merge_garmin_exports(garmin_files_df, 'pulseox')
-merge_garmin_exports(garmin_files_df, 'sleep')
-merge_garmin_exports(garmin_files_df, 'usermetric')
-merge_garmin_exports(garmin_files_df, 'epoch')
-merge_garmin_exports(garmin_files_df, 'bodycomposition')
-merge_garmin_exports(garmin_files_df, 'respiration')
+merge_garmin_exports(garmin_files_df, 'dailies')
+# merge_garmin_exports(garmin_files_df, 'stress')
+# merge_garmin_exports(garmin_files_df, 'pulseox')
+# merge_garmin_exports(garmin_files_df, 'sleep')
+# merge_garmin_exports(garmin_files_df, 'usermetric')
+# merge_garmin_exports(garmin_files_df, 'epoch')
+# merge_garmin_exports(garmin_files_df, 'bodycomposition')
+# merge_garmin_exports(garmin_files_df, 'respiration')

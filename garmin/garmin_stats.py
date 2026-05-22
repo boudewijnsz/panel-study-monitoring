@@ -11,6 +11,10 @@ from ibridges.path import IrodsPath
 from ibridges import download
 from ibridges import upload
 
+# creat the stats for each participant, based on the csv files created with
+# garmin_data_overview.py. Files contain all data for a participant (based on
+# account), therefore contain all measurements up to the most recent day.
+
 print("processing Garmin stats")
 
 # load the variables defined in the env file
@@ -180,6 +184,7 @@ else:
 
 # store a version of the hist data in the downloads folder to add the data to 
 # the sodaq sensor overview
+print("write data_daily_hr_hist.csv")
 data_daily_hr_hist.to_csv(
     Path(downloads_path, 'data_daily_hr_hist.csv'), index=False
 )
