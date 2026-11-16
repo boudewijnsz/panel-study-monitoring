@@ -8,7 +8,7 @@ import os
 import pandas as pd
 from dotenv import dotenv_values
 from ibridges import search_data
-from ibridges.interactive import Session
+from ibridges import Session
 from ibridges import IrodsPath
 
 # this script creates csv files from the Garmin json files stored in Yoda. A

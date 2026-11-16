@@ -94,14 +94,14 @@ def merge_sensor_data(sensor_type):
     else:
         sensor_files = air_files
     
-    sensor_columns = {'static': ['IMEI statisch', 'short_code_statisch'],
-                      'dynamic': ['IMEI dynamisch', 'short_code_dynamisch'],
+    sensor_columns = {'static': ['imei statisch', 'short_code_statisch'],
+                      'dynamic': ['imei dynamisch', 'short_code_dynamisch'],
                       'gps': ['GPS IMEI', 'QR CODE']}
     
     sensor_column = sensor_columns[sensor_type]
     
     sensor_data = (
-        batch_sensor_aid_keylist[['Studienummer', 'Naam', 'Email', 'pakket verstuurd', 'pakket retour'] + sensor_column]
+        batch_sensor_aid_keylist[['studienummer', 'naam', 'email', 'pakket verstuurd', 'pakket retour'] + sensor_column]
         .merge(sensor_files, how='left', left_on=sensor_column[0], right_on='IMEI')
         )
     
@@ -112,11 +112,11 @@ def count_sensor_files(sensor_files, sensor_type):
     
     if sensor_type == 'static':
         
-        imei_column = ['IMEI statisch', 'short_code_statisch']
+        imei_column = ['imei statisch', 'short_code_statisch']
         
     elif sensor_type == 'dynamic':
     
-        imei_column = ['IMEI dynamisch', 'short_code_dynamisch']
+        imei_column = ['imei dynamisch', 'short_code_dynamisch']
         
     elif sensor_type == 'gps':
         
@@ -131,8 +131,8 @@ def count_sensor_files(sensor_files, sensor_type):
         sensor_files
         .loc[((sensor_files['file_date'] >= pd.to_datetime(sensor_files['pakket verstuurd'])) &
               (sensor_files['file_date'] < pd.to_datetime(sensor_files['pakket retour'])))]
-        .filter(['Studienummer', 'Email', 'file_path'] + imei_column)
-        .groupby(['Studienummer', 'Email'] + imei_column)
+        .filter(['studienummer', 'email', 'file_path'] + imei_column)
+        .groupby(['studienummer', 'email'] + imei_column)
         .count()
         .reset_index()
         .assign(sensor_type = sensor_type)
@@ -144,7 +144,7 @@ def count_sensor_files(sensor_files, sensor_type):
     # sometimes files are missing completely so merge back to original list of
     # IMEIS
     batch_IMEIs =  batch_sensor_aid_keylist[
-        ['Studienummer', 'Email'] + imei_column
+        ['studienummer', 'email'] + imei_column
     ]
 
                       
@@ -188,12 +188,12 @@ def get_sensor_dates(sensor_files, sensor_type):
         sensor_dates
         .loc[((sensor_dates['date'] >= sensor_dates['pakket verstuurd']) &
                 (sensor_dates['date'] < sensor_dates['pakket retour']))]
-        .filter(['Studienummer', 'date'])
+        .filter(['studienummer', 'date'])
         .assign(file_date = sensor_dates['date'].astype('string'))
         .assign(file_available = 'yes')
         .assign(sensor_type = sensor_type)
         .drop_duplicates()
-        .pivot(columns='file_date', index=['Studienummer', 'sensor_type'], values='file_available')
+        .pivot(columns='file_date', index=['studienummer', 'sensor_type'], values='file_available')
         .reset_index()
         )
     
@@ -216,16 +216,16 @@ dynamic_air_sensors_count = count_sensor_files(dynamic_air_sensors, 'dynamic')
 dynamic_air_sensors_count_dates = get_sensor_dates(dynamic_air_sensors, 'dynamic')
 
 print('creating overview')
-gps_overview = gps_sensors_count.merge(gps_sensors_count_dates, how='left', on=['Studienummer', 'sensor_type'])
-static_overview = static_air_sensors_count.merge(static_air_sensors_count_dates, how='left', on=['Studienummer', 'sensor_type'])
-dynamic_overview = dynamic_air_sensors_count.merge(dynamic_air_sensors_count_dates, how='left', on=['Studienummer', 'sensor_type'])
+gps_overview = gps_sensors_count.merge(gps_sensors_count_dates, how='left', on=['studienummer', 'sensor_type'])
+static_overview = static_air_sensors_count.merge(static_air_sensors_count_dates, how='left', on=['studienummer', 'sensor_type'])
+dynamic_overview = dynamic_air_sensors_count.merge(dynamic_air_sensors_count_dates, how='left', on=['studienummer', 'sensor_type'])
 
 
 # create the file with the full overview
 overview_static_dynamic_gps = pd.concat(
     [static_overview, 
      dynamic_overview,
-     gps_overview]).sort_values(['Studienummer', 'sensor_type'])
+     gps_overview]).sort_values(['studienummer', 'sensor_type'])
 
 # add garmin data, these have been produced by script garmin_stats.py
 garmin_data_path = Path(
@@ -235,7 +235,7 @@ garmin_data_path = Path(
 # garmin_data_path = r"O:\DGK\IRAS\EEPI\Projects\Exposome-Panel Study\Datamanagement\study_admin_code\panel-study-monitoring\downloads\data_daily_hr_hist.csv"
 
 garmin_data = pd.read_csv(garmin_data_path, 
-                          dtype={'Studienummer': str,
+                          dtype={'studienummer': str,
                                  'date': str,
                                  'measurements': 'Int32'})
 
@@ -297,7 +297,7 @@ overview_static_dynamic_gps = overview_static_dynamic_gps[
     overview_non_date_columns + overview_date_columns
 ]
 
-overview_static_dynamic_gps.dropna(subset=['Studienummer'], inplace=True)
+overview_static_dynamic_gps.dropna(subset=['studienummer'], inplace=True)
 
 overview_static_dynamic_gps.drop_duplicates(inplace=True)
 print('overview completed')
